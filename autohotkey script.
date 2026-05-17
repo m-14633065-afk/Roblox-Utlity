@@ -1,0 +1,1625 @@
+; Roblox Utility Pro Ultimate (v2.0.0)
+; Enhancements: Smooth Color Aimbot, AI Adaptive Recoil, Expanded Assistant
+
+#NoEnv
+#SingleInstance Force
+#MaxThreadsPerHotkey 3
+#KeyHistory 0
+ListLines Off
+SetBatchLines, -1
+SetKeyDelay, -1, -1
+SetMouseDelay, -1
+SetWinDelay, -1
+SetControlDelay, -1
+SendMode Input
+SetWorkingDir %A_ScriptDir%
+CoordMode, Mouse, Screen
+CoordMode, Pixel, Screen
+
+; Elevate the script's own CPU priority
+Process, Priority, , High
+
+; --- App Styling & System Tray Setup ---
+Menu, Tray, NoStandard
+Menu, Tray, Icon, shell32.dll, 321
+Menu, Tray, Add, ⚙️ Open Dashboard, ShowApp
+Menu, Tray, Add, ⏸️ Toggle Suspend, ToggleSuspend
+Menu, Tray, Add, ✖ Exit Utility, CloseApp
+Menu, Tray, Default, ⚙️ Open Dashboard
+Menu, Tray, Tip, Phantom Engine v2.0.0
+
+; Check if running on startup
+IfExist, %A_Startup%\RobloxUtility.lnk
+    RunOnStartup := 1
+else
+    RunOnStartup := 0
+
+; --- Initializations & Safe INI Loading ---
+global IniFile := "roblox_utility.ini"
+
+IniRead, ClickerHotkey, %IniFile%, Settings, ClickerHotkey, F8
+IniRead, TyperHotkey, %IniFile%, Settings, TyperHotkey, F9
+IniRead, ResetHotkey, %IniFile%, Settings, ResetHotkey, F10
+IniRead, SkillHotkey, %IniFile%, Settings, SkillHotkey, F11
+IniRead, BossHotkey, %IniFile%, Settings, BossHotkey, F12
+IniRead, AutoWalkHotkey, %IniFile%, Settings, AutoWalkHotkey, F6
+IniRead, DashHotkey, %IniFile%, Settings, DashHotkey, Home
+IniRead, TriggerHotkey, %IniFile%, Settings, TriggerHotkey, XButton2
+
+; Aimbot Settings
+IniRead, AimbotHotkey, %IniFile%, Settings, AimbotHotkey, XButton1
+IniRead, AimbotColor, %IniFile%, Settings, AimbotColor, FF0000
+IniRead, AimbotTolerance, %IniFile%, Settings, AimbotTolerance, 15
+IniRead, AimbotFOV, %IniFile%, Settings, AimbotFOV, 100
+IniRead, AimbotSmooth, %IniFile%, Settings, AimbotSmooth, 5
+
+IniRead, ClickDelay, %IniFile%, Settings, ClickDelay, 50
+IniRead, ClickHoldTime, %IniFile%, Settings, ClickHoldTime, 10
+IniRead, BurstClicks, %IniFile%, Settings, BurstClicks, 1
+IniRead, ClickLimit, %IniFile%, Settings, ClickLimit, 0
+IniRead, JitterActive, %IniFile%, Settings, JitterActive, 0
+IniRead, JitterIntensity, %IniFile%, Settings, JitterIntensity, 2
+IniRead, TargetRadius, %IniFile%, Settings, TargetRadius, 0
+IniRead, UseCustomLoc, %IniFile%, Settings, UseCustomLoc, 0
+IniRead, CustomX, %IniFile%, Settings, CustomX, 0
+IniRead, CustomY, %IniFile%, Settings, CustomY, 0
+IniRead, FocusLock, %IniFile%, Settings, FocusLock, 1
+IniRead, ClickSound, %IniFile%, Settings, ClickSound, 0
+IniRead, HumanMoveTarget, %IniFile%, Settings, HumanMoveTarget, 1
+IniRead, AiRecoil, %IniFile%, Settings, AiRecoil, 0
+
+IniRead, TyperMessage, %IniFile%, Settings, TyperMessage, Msg 1|Msg 2|Msg 3
+IniRead, TyperDelay, %IniFile%, Settings, TyperDelay, 15
+IniRead, SkillSequence, %IniFile%, Settings, SkillSequence, 1`,2`,3`,{Click}`,E
+IniRead, SkillDelay, %IniFile%, Settings, SkillDelay, 500
+IniRead, ResetDelay, %IniFile%, Settings, ResetDelay, 150
+
+IniRead, HumanizeAfk, %IniFile%, Settings, HumanizeAfk, 1
+IniRead, AutoPriority, %IniFile%, Settings, AutoPriority, 0
+
+IniRead, ClickType, %IniFile%, Settings, ClickType, Left
+IniRead, ClickMode, %IniFile%, Settings, ClickMode, Toggle
+IniRead, AfkMode, %IniFile%, Settings, AfkMode, Jump
+IniRead, CrossShape, %IniFile%, Settings, CrossShape, +
+IniRead, CrossColor, %IniFile%, Settings, CrossColor, 00FFAA
+IniRead, AlwaysOnTop, %IniFile%, Settings, AlwaysOnTop, 1
+
+IniRead, RemapPhysicalKey, %IniFile%, Settings, RemapPhysicalKey, Right Click
+IniRead, RemapSendKey, %IniFile%, Settings, RemapSendKey, Space
+
+IniRead, TargetMode, %IniFile%, Settings, TargetMode, Roblox Only
+IniRead, GhostMode, %IniFile%, Settings, GhostMode, 0
+
+IniRead, TriggerColor, %IniFile%, Settings, TriggerColor, FF0000
+IniRead, TriggerTolerance, %IniFile%, Settings, TriggerTolerance, 15
+IniRead, TriggerArea, %IniFile%, Settings, TriggerArea, 20
+
+; Fallback validation
+if (ClickDelay < 1 || ClickDelay == "ERROR")
+    ClickDelay := 50
+if (ClickHoldTime < 1 || ClickHoldTime == "ERROR")
+    ClickHoldTime := 10
+if (BurstClicks < 1 || BurstClicks == "ERROR")
+    BurstClicks := 1
+if (TyperDelay < 1 || TyperDelay == "ERROR")
+    TyperDelay := 15
+if (SkillDelay < 1 || SkillDelay == "ERROR")
+    SkillDelay := 500
+if (AimbotFOV < 10 || AimbotFOV == "ERROR")
+    AimbotFOV := 100
+if (AimbotSmooth < 1 || AimbotSmooth == "ERROR")
+    AimbotSmooth := 5
+
+global AutoclickerToggle := false
+global TyperToggle := false
+global SkillToggle := false
+global AutoWalkToggle := false
+global TriggerToggle := false
+global AimbotActive := false
+global RemapActive := 0
+global BhopActive := 0
+global AntiAfkToggle := 0
+global UseRandomInterval := 0
+global CrosshairActive := 0
+global ClickCount := 0
+global IsSuspended := 0
+global IsBossHidden := 0
+global MsgIndex := 1
+global BhopRunning := false
+global RobloxFrozen := false
+global AppTitle := RandomStr(16)
+global hAiChat
+
+global OldClickerHotkey := ClickerHotkey
+global OldTyperHotkey := TyperHotkey
+global OldResetHotkey := ResetHotkey
+global OldSkillHotkey := SkillHotkey
+global OldBossHotkey := BossHotkey
+global OldAutoWalkHotkey := AutoWalkHotkey
+global OldDashHotkey := DashHotkey
+global OldTriggerHotkey := TriggerHotkey
+global OldAimbotHotkey := AimbotHotkey
+global OldRemapKey := ""
+
+; Global Scrolling Variables
+global TargetScrollY := 0
+global ScrollY := 0
+global MaxScroll := 0
+global MainHwnd
+global ChildHwnd
+
+GroupAdd, RobloxGroup, ahk_exe RobloxPlayerBeta.exe
+GroupAdd, RobloxGroup, ahk_exe RobloxPlayer64.exe
+GroupAdd, RobloxGroup, ahk_exe Windows10Universal.exe
+
+; Apply initial Ghost Mode state
+if (GhostMode)
+    Menu, Tray, NoIcon
+
+OnMessage(0x0201, "WM_LBUTTONDOWN")
+OnMessage(0x020A, "WM_MOUSEWHEEL")
+
+; ==========================================
+; --- GUI SETUP: MAIN & SIDEBAR ---
+; ==========================================
+Gui, Main:+LastFound +AlwaysOnTop -Caption +ToolWindow
+MainHwnd := WinExist()
+Gui, Main:Color, 15151A
+Gui, Main:Font, s10 cWhite, Segoe UI
+
+; Title Bar
+Gui, Main:Add, Progress, x0 y0 w500 h35 Background101015 Disabled
+Gui, Main:Font, s11 w700
+Gui, Main:Add, Text, vTitleText x15 y7 w380 BackgroundTrans cWhite, ⚙️ UTILITY APP v2.0 (SINGULARITY)
+Gui, Main:Font, s11 w700 cSilver
+Gui, Main:Add, Text, x440 y7 w20 h20 BackgroundTrans Center gMinimizeApp, _
+Gui, Main:Font, s11 w400 cRed
+Gui, Main:Add, Text, x470 y7 w20 h20 BackgroundTrans Center gCloseApp, ✖
+
+; Left Sidebar Navigation
+Gui, Main:Add, Progress, x0 y35 w130 h610 Background1A1A20 Disabled
+Gui, Main:Font, s10 w700 c00FFAA
+Gui, Main:Add, Text, x15 y55 BackgroundTrans, NAVIGATION
+Gui, Main:Font, s10 w600 cWhite
+Gui, Main:Add, Button, x10 y85 w110 h35 gNavAimbot, 🔫 Aimbot
+Gui, Main:Add, Button, x10 y130 w110 h35 gNavCombat, ⚔️ Combat
+Gui, Main:Add, Button, x10 y175 w110 h35 gNavTrigger, 🎯 Triggerbot
+Gui, Main:Add, Button, x10 y220 w110 h35 gNavMovement, 🔄 Movement
+Gui, Main:Add, Button, x10 y265 w110 h35 gNavAntiAFK, 🛡️ Anti-AFK
+Gui, Main:Add, Button, x10 y310 w110 h35 gNavMacros, 📜 Macros
+Gui, Main:Add, Button, x10 y355 w110 h35 gNavVisuals, 👁️ Visuals
+Gui, Main:Add, Button, x10 y400 w110 h35 gNavSettings, ⚙️ Settings
+Gui, Main:Add, Button, x10 y445 w110 h35 gNavAdvanced, 🛠️ Advanced
+Gui, Main:Add, Button, x10 y490 w110 h35 gNavAssistant, 🤖 AI Assistant
+
+if (AlwaysOnTop)
+    Gui, Main:+AlwaysOnTop
+else
+    Gui, Main:-AlwaysOnTop
+
+Gui, Main:Show, w500 h645, %AppTitle%
+
+; ==========================================
+; --- GUI SETUP: SCROLLABLE CHILD ---
+; ==========================================
+Gui, Child:+LastFound -Caption +Parent%MainHwnd%
+ChildHwnd := WinExist()
+Gui, Child:Color, 1E1E24
+Gui, Child:Font, s10 cWhite, Segoe UI
+
+; --- AIMBOT SECTION ---
+Gui, Child:Font, s14 w700 c00FFAA
+Gui, Child:Add, Text, x20 y20 vSecAimbot, 🔫 Color Aimbot (Smooth Aim)
+Gui, Child:Font, s10 w400 cWhite
+
+Gui, Child:Add, Text, x20 y+15 w330 cGray, Hold the hotkey to smoothly track and lock onto the target color within your Field of View.
+Gui, Child:Add, Text, x20 y+15, Target Hex Color:
+Gui, Child:Add, Edit, vAimbotColor x140 yp-3 w80 Center, %AimbotColor%
+Gui, Child:Add, Text, x230 yp+3 cGray, (e.g., FF0000)
+
+Gui, Child:Add, Text, x20 y+15, Smoothing (1-20):
+Gui, Child:Add, Edit, vAimbotSmooth x140 yp-3 w40 Number Center, %AimbotSmooth%
+Gui, Child:Add, Text, x190 yp+3, FOV (px):
+Gui, Child:Add, Edit, vAimbotFOV x260 yp-3 w60 Number Center, %AimbotFOV%
+
+Gui, Child:Add, Text, x20 y+15, Color Tolerance:
+Gui, Child:Add, Edit, vAimbotTolerance x140 yp-3 w40 Number Center, %AimbotTolerance%
+
+Gui, Child:Add, Text, x20 y+15, Hold Hotkey:
+Gui, Child:Add, Hotkey, vAimbotHotkey gUpdateVars x120 yp-3 w100, %AimbotHotkey%
+Gui, Child:Add, Checkbox, vAimbotActive gUpdateVars x240 yp+3 Checked%AimbotActive%, Enable Aimbot
+
+Gui, Child:Add, Button, x20 y+20 w330 h30 gUpdateVars, Apply Aimbot Settings
+Gui, Child:Add, Text, x20 y+20 w330 0x10 ; Divider
+
+; --- COMBAT SECTION ---
+Gui, Child:Font, s14 w700 c00FFAA
+Gui, Child:Add, Text, x20 y+20 vSecCombat, ⚔️ Combat & Autoclicker
+Gui, Child:Font, s10 w400 cWhite
+
+Gui, Child:Add, Text, x20 y+15, Activation Hotkey:
+Gui, Child:Add, Hotkey, vClickerHotkey gUpdateVars x150 yp-3 w120, %ClickerHotkey%
+
+Gui, Child:Add, Text, x20 y+15, Mouse Button:
+Gui, Child:Add, DropDownList, vClickType x150 yp-3 w120, Left||Right|Middle|Double-Click|Scroll Up|Scroll Down
+
+Gui, Child:Add, Text, x20 y+15, Interval (ms):
+Gui, Child:Add, Edit, vClickDelay x150 yp-3 w50 Number Center, %ClickDelay%
+Gui, Child:Add, Text, x210 yp+3, Hold (ms):
+Gui, Child:Add, Edit, vClickHoldTime x280 yp-3 w50 Number Center, %ClickHoldTime%
+
+Gui, Child:Add, Text, x20 y+15, Burst Clicks:
+Gui, Child:Add, Edit, vBurstClicks x150 yp-3 w50 Number Center, %BurstClicks%
+Gui, Child:Add, Text, x210 yp+3, Limit (0=∞):
+Gui, Child:Add, Edit, vClickLimit x280 yp-3 w50 Number Center, %ClickLimit%
+
+Gui, Child:Add, Text, x20 y+15, Activation Mode:
+Gui, Child:Add, DropDownList, vClickMode x150 yp-3 w120, Toggle||Hold
+Gui, Child:Add, Checkbox, vUseRandomInterval x280 yp+3, Randomize
+
+Gui, Child:Add, Checkbox, vFocusLock x20 y+20 Checked%FocusLock%, Focus Lock (Only click in targeted app)
+
+Gui, Child:Add, Checkbox, vUseCustomLoc x20 y+15 Checked%UseCustomLoc%, Custom Pos X:
+Gui, Child:Add, Edit, vCustomX x130 yp-3 w40 Center, %CustomX%
+Gui, Child:Add, Text, x175 yp+3, Y:
+Gui, Child:Add, Edit, vCustomY x195 yp-3 w40 Center, %CustomY%
+Gui, Child:Add, Button, x245 yp-2 w85 h25 gCaptureCoords, Target (F7)
+
+Gui, Child:Add, Checkbox, vHumanMoveTarget x20 y+15 Checked%HumanMoveTarget%, Humanized Mouse Curve (Anti-Teleport)
+
+Gui, Child:Add, Text, x20 y+15, Target Radius:
+Gui, Child:Add, Edit, vTargetRadius x140 yp-3 w40 Number Center, %TargetRadius%
+Gui, Child:Add, Checkbox, vJitterActive x195 yp+3 Checked%JitterActive%, Shake:
+Gui, Child:Add, Edit, vJitterIntensity x255 yp-3 w40 Number Center, %JitterIntensity%
+Gui, Child:Add, Checkbox, vAiRecoil x20 y+15 Checked%AiRecoil%, AI Adaptive Recoil (Shake increases over time)
+
+Gui, Child:Add, Text, x20 y+20, Status:
+Gui, Child:Font, s12 w700 c00FFAA
+Gui, Child:Add, Text, vAutoStatus x150 yp-2 w150 cGray, STANDBY
+Gui, Child:Font, s10 w400 cWhite
+Gui, Child:Add, Button, x20 y+15 w330 h30 gUpdateVars, Apply Combat Settings
+Gui, Child:Add, Text, x20 y+20 w330 0x10 ; Divider
+
+; --- TRIGGERBOT SECTION ---
+Gui, Child:Font, s14 w700 c00FFAA
+Gui, Child:Add, Text, x20 y+20 vSecTrigger, 🎯 Color Triggerbot
+Gui, Child:Font, s10 w400 cWhite
+
+Gui, Child:Add, Text, x20 y+15 w330 cGray, Automatically clicks when a specific color enters the center screen box.
+Gui, Child:Add, Text, x20 y+15, Target Hex Color:
+Gui, Child:Add, Edit, vTriggerColor x140 yp-3 w80 Center, %TriggerColor%
+Gui, Child:Add, Text, x230 yp+3 cGray, (e.g., FF0000 = Red)
+
+Gui, Child:Add, Text, x20 y+15, Tolerance (0-255):
+Gui, Child:Add, Edit, vTriggerTolerance x140 yp-3 w40 Number Center, %TriggerTolerance%
+Gui, Child:Add, Text, x190 yp+3, Area Box (px):
+Gui, Child:Add, Edit, vTriggerArea x280 yp-3 w40 Number Center, %TriggerArea%
+
+Gui, Child:Add, Text, x20 y+15, Activation Key:
+Gui, Child:Add, Hotkey, vTriggerHotkey gUpdateVars x120 yp-3 w100, %TriggerHotkey%
+
+Gui, Child:Add, Text, x20 y+20, Status:
+Gui, Child:Font, s12 w700 c00FFAA
+Gui, Child:Add, Text, vTriggerStatus x150 yp-2 w150 cGray, STANDBY
+Gui, Child:Font, s10 w400 cWhite
+Gui, Child:Add, Button, x20 y+15 w330 h30 gUpdateVars, Apply Triggerbot Settings
+Gui, Child:Add, Text, x20 y+20 w330 0x10 ; Divider
+
+; --- MOVEMENT SECTION ---
+Gui, Child:Font, s14 w700 c00FFAA
+Gui, Child:Add, Text, x20 y+20 vSecMovement, 🔄 Universal Remapper & Movement
+Gui, Child:Font, s10 w400 cWhite
+
+Gui, Child:Add, Text, x20 y+15, Physical Key:
+Gui, Child:Add, ComboBox, vRemapPhysicalKey x105 yp-3 w110, Right Click||Middle Click|Side Button 1|Side Button 2|LShift|LAlt|C|V|Q|E
+Gui, Child:Add, Text, x225 yp+3, Sends:
+Gui, Child:Add, ComboBox, vRemapSendKey x270 yp-3 w80, Space||Esc|W|A|S|D|R|F|Shift|Ctrl
+
+Gui, Child:Add, Checkbox, vRemapActive gUpdateVars x20 y+15, Enable Universal Key Remapper
+Gui, Child:Add, Checkbox, vBhopActive gUpdateVars x20 y+20, Enable Hardware Auto-Bhop
+Gui, Child:Add, Text, x20 y+10 w330 cGray, Auto-Bhop dynamically attaches to any key configured to send "Space".
+Gui, Child:Add, Button, x20 y+15 w330 h30 gUpdateVars, Apply Movement Settings
+Gui, Child:Add, Text, x20 y+20 w330 0x10 ; Divider
+
+; --- ANTI-AFK SECTION ---
+Gui, Child:Font, s14 w700 c00FFAA
+Gui, Child:Add, Text, x20 y+20 vSecAntiAFK, 🛡️ Anti-AFK
+Gui, Child:Font, s10 w400 cWhite
+
+Gui, Child:Add, Text, x20 y+15, Afk Method:
+Gui, Child:Add, DropDownList, vAfkMode gUpdateVars x120 yp-3 w180, Jump||Walk (W+S)|Spin (Arrows)|Mouse Jiggle|Camera Pan
+Gui, Child:Add, Text, x20 y+15, Interval:
+Gui, Child:Add, Edit, vAfkInterval x120 yp-3 w50 Number Center, 10
+Gui, Child:Add, Text, x180 yp+3, Minutes
+
+Gui, Child:Add, Checkbox, vHumanizeAfk gUpdateVars x20 y+15 Checked%HumanizeAfk%, Humanize Timer (+/- 30s variance)
+Gui, Child:Add, Checkbox, vAntiAfkToggle gToggleAntiAfk x20 y+15, Enable Anti-AFK Routine
+Gui, Child:Add, Text, x20 y+20 w330 0x10 ; Divider
+
+; --- MACROS SECTION ---
+Gui, Child:Font, s14 w700 c00FFAA
+Gui, Child:Add, Text, x20 y+20 vSecMacros, 📜 Macros & Spammers
+Gui, Child:Font, s10 w400 cWhite
+
+Gui, Child:Add, Text, x20 y+15 c00FFAA w700, Instant-Paste Spammer (Use | to separate)
+Gui, Child:Add, Text, x20 y+10, Msg:
+Gui, Child:Add, Edit, vTyperMessage x60 yp-3 w270, %TyperMessage%
+Gui, Child:Add, Text, x20 y+15, Delay (s):
+Gui, Child:Add, Edit, vTyperDelay x80 yp-3 w50 Number Center, %TyperDelay%
+Gui, Child:Add, Text, x140 yp+3, Key:
+Gui, Child:Add, Hotkey, vTyperHotkey gUpdateVars x175 yp-3 w80, %TyperHotkey%
+Gui, Child:Add, Text, x265 yp+3 vTyperStatus cGray w70, STANDBY
+
+Gui, Child:Add, Text, x20 y+25 c00FFAA w700, Auto-Reset Character (Esc->R->Enter)
+Gui, Child:Add, Text, x20 y+10, Delay:
+Gui, Child:Add, Edit, vResetDelay x65 yp-3 w50 Number Center, %ResetDelay%
+Gui, Child:Add, Text, x125 yp+3, Hotkey:
+Gui, Child:Add, Hotkey, vResetHotkey gUpdateVars x180 yp-3 w100, %ResetHotkey%
+
+Gui, Child:Add, Text, x20 y+25 c00FFAA w700, Adv. Auto-Skill Spammer (Comma separated)
+Gui, Child:Add, Text, x20 y+10, Seq:
+Gui, Child:Add, Edit, vSkillSequence x60 yp-3 w250, %SkillSequence%
+Gui, Child:Add, Text, x20 y+15, Delay (ms):
+Gui, Child:Add, Edit, vSkillDelay x90 yp-3 w50 Number Center, %SkillDelay%
+Gui, Child:Add, Text, x150 yp+3, Key:
+Gui, Child:Add, Hotkey, vSkillHotkey gUpdateVars x185 yp-3 w80, %SkillHotkey%
+Gui, Child:Add, Text, x275 yp+3 vSkillStatus cGray w70, STANDBY
+
+Gui, Child:Add, Text, x20 y+25 c00FFAA w700, Auto-Walk (W Hold)
+Gui, Child:Add, Text, x20 y+10, Hotkey:
+Gui, Child:Add, Hotkey, vAutoWalkHotkey gUpdateVars x80 yp-3 w100, %AutoWalkHotkey%
+
+Gui, Child:Add, Button, x20 y+20 w330 h30 gUpdateVars, Apply Macro Settings
+Gui, Child:Add, Text, x20 y+20 w330 0x10 ; Divider
+
+; --- VISUALS SECTION ---
+Gui, Child:Font, s14 w700 c00FFAA
+Gui, Child:Add, Text, x20 y+20 vSecVisuals, 👁️ Visuals & Optimization
+Gui, Child:Font, s10 w400 cWhite
+
+Gui, Child:Add, Text, x20 y+15, Boss Key (Hide Game):
+Gui, Child:Add, Hotkey, vBossHotkey gUpdateVars x160 yp-3 w100, %BossHotkey%
+
+Gui, Child:Add, Text, x20 y+20, Crosshair:
+Gui, Child:Add, DropDownList, vCrossShape gUpdateCrosshair x90 yp-3 w50, +||O|X|•
+Gui, Child:Add, Text, x150 yp+3, Color:
+Gui, Child:Add, DropDownList, vCrossColor gUpdateCrosshair x195 yp-3 w90, 00FFAA||FF0000|0000FF|FF00FF|FFFF00|FFFFFF
+Gui, Child:Add, Checkbox, vCrosshairActive gUpdateCrosshair x20 y+15, Enable Screen-Center Crosshair
+
+Gui, Child:Add, Button, x20 y+25 w160 h35 gForceKillRoblox, 💀 Force Kill Game
+Gui, Child:Add, Button, x190 yp w160 h35 gToggleBorderless, 🖵 Borderless FS
+Gui, Child:Add, Button, x20 y+10 w160 h35 gSetRobloxPriority, 🚀 Max CPU Boost
+Gui, Child:Add, Button, x190 yp w160 h35 gUnlockFPS, 🔓 Unlock FPS
+Gui, Child:Add, Button, x20 y+10 w160 h35 gFlushRAM, 🧠 Flush RAM
+Gui, Child:Add, Button, x190 yp w160 h35 gFlushNetwork, 🌐 Fix Ping (DNS)
+Gui, Child:Add, Button, x20 y+10 w330 h35 gClearRobloxCache, 🧹 Clear Temp Cache
+Gui, Child:Add, Text, x20 y+20 w330 0x10 ; Divider
+
+; --- SETTINGS SECTION ---
+Gui, Child:Font, s14 w700 c00FFAA
+Gui, Child:Add, Text, x20 y+20 vSecSettings, ⚙️ Settings & System
+Gui, Child:Font, s10 w400 cWhite
+
+Gui, Child:Add, Text, x20 y+15 c00FFAA w700, Application Targeting & Stealth
+Gui, Child:Add, Text, x20 y+10, Target App:
+Gui, Child:Add, DropDownList, vTargetMode gUpdateVars x100 yp-3 w160, Roblox Only||Any Application (Global)
+Gui, Child:Add, Checkbox, vGhostMode gUpdateVars x20 y+15 Checked%GhostMode%, Ghost Mode (Completely hide System Tray Icon)
+
+Gui, Child:Add, Text, x20 y+15, Dashboard Hotkey (Open/Hide UI):
+Gui, Child:Add, Hotkey, vDashHotkey gUpdateVars x230 yp-3 w80, %DashHotkey%
+
+Gui, Child:Add, Text, x20 y+20 w330 0x10 ; Divider
+
+Gui, Child:Add, Checkbox, vAlwaysOnTop gUpdateSettings x20 y+15 Checked%AlwaysOnTop%, UI Always On Top
+Gui, Child:Add, Checkbox, vRunOnStartup gToggleStartup x190 yp Checked%RunOnStartup%, Launch on PC Start
+Gui, Child:Add, Checkbox, vAutoPriority gToggleAutoPriority x20 y+15 Checked%AutoPriority%, Auto-Boost CPU Priority in Background
+
+Gui, Child:Add, Button, x20 y+25 w330 h35 gSaveSettings, 💾 Save Current Profile to .INI
+Gui, Child:Add, Button, x20 y+10 w160 h35 gReloadScript, ↻ Reload Script
+Gui, Child:Add, Button, x190 yp w160 h35 gCloseApp, ✖ Exit Application
+Gui, Child:Add, Text, x20 y+20 w330 0x10 ; Divider
+
+; --- ADVANCED SECTION ---
+Gui, Child:Font, s14 w700 c00FFAA
+Gui, Child:Add, Text, x20 y+20 vSecAdvanced, 🛠️ Advanced Utility
+Gui, Child:Font, s10 w400 cWhite
+
+Gui, Child:Add, Checkbox, vClickSound gUpdateVars x20 y+15 Checked%ClickSound%, Play sound on AutoClick (Tick)
+Gui, Child:Add, Text, x20 y+15 c00FFAA w700, Window Management (FPS Boost):
+Gui, Child:Add, Button, x20 y+10 w160 h30 gRes800, Force 800x600 (Stretched)
+Gui, Child:Add, Button, x190 yp w160 h30 gRes1920, Force 1920x1080
+
+Gui, Child:Add, Text, x20 y+15 c00FFAA w700, Game State Manipulation:
+Gui, Child:Add, Button, x20 y+10 w330 h35 gToggleFreeze, ❄️ Freeze / Unfreeze Roblox (Lag Switch)
+Gui, Child:Add, Text, x20 y+10 w330 cGray, Freezes your character in the air/space for everyone else in the server until you click unfreeze.
+Gui, Child:Add, Text, x20 y+20 w330 0x10 ; Divider
+
+; --- AI ASSISTANT SECTION ---
+Gui, Child:Font, s14 w700 c00FFAA
+Gui, Child:Add, Text, x20 y+20 vSecAssistant, 🤖 AI Assistant (Local)
+Gui, Child:Font, s10 w400 cWhite
+Gui, Child:Add, Text, x20 y+15 w330 cGray, Talk to your local smart helper to control macros via text or ask for explanations.
+Gui, Child:Add, Edit, vAiChatHistory hwndhAiChat x20 y+10 w330 h130 ReadOnly, AI: Hello! I am your v2.0 assistant. Type commands like "turn on aimbot", "enable bhop", or ask "what is triggerbot?"`n`n
+Gui, Child:Add, Edit, vAiUserInput x20 y+10 w260 h30,
+Gui, Child:Add, Button, x290 yp w60 h30 Default gAiSendMsg, Send
+Gui, Child:Add, Text, x20 y+20 w330 0x10 ; Divider
+
+; --- End of Content ---
+Gui, Child:Add, Text, x20 y+40 vEndMarker, . ; Invisible marker for height calc
+
+; Calculate dynamic height for scrolling
+GuiControlGet, endPos, Child:Pos, EndMarker
+ChildHeight := endPosY + 70
+MaxScroll := ChildHeight - 610
+if (MaxScroll < 0)
+    MaxScroll := 0
+    
+Gui, Child:Show, x130 y35 w370 h%ChildHeight%
+
+; Restore saved GUI elements dynamically
+GuiControl, Child:ChooseString, ClickType, %ClickType%
+GuiControl, Child:ChooseString, ClickMode, %ClickMode%
+GuiControl, Child:Text, RemapPhysicalKey, %RemapPhysicalKey%
+GuiControl, Child:Text, RemapSendKey, %RemapSendKey%
+GuiControl, Child:ChooseString, AfkMode, %AfkMode%
+GuiControl, Child:ChooseString, CrossShape, %CrossShape%
+GuiControl, Child:ChooseString, CrossColor, %CrossColor%
+GuiControl, Child:ChooseString, TargetMode, %TargetMode%
+
+; Init AutoPriority
+if (AutoPriority)
+    SetTimer, AutoPriorityLoop, 10000
+
+; Register System Hotkeys
+Hotkey, ~^Esc, PanicAction
+Hotkey, ~F7, CaptureLocationAction
+Hotkey, Pause, ToggleSuspend
+Hotkey, ^+End, ScorchedEarthAction
+
+; Force initial hotkey compilation
+GoSub, UpdateHotkeys
+
+; Start Smooth Scroll Engine
+SetTimer, SmoothScrollLoop, 16
+return
+
+; ==========================================
+; --- SYSTEM SUBROUTINES & SCROLL ENGINE ---
+; ==========================================
+
+AiSendMsg:
+    Gui, Child:Submit, NoHide
+    if (AiUserInput == "")
+        return
+
+    ; Append User Message
+    GuiControlGet, currentChat,, AiChatHistory
+    newChat := currentChat . "You: " . AiUserInput . "`n"
+    GuiControl, Child:, AiUserInput, ; Clear input
+
+    ; AI Processing
+    LowerInput := Format("{:L}", AiUserInput)
+    Response := ""
+
+    if (InStr(LowerInput, "autoclicker") && (InStr(LowerInput, "on") || InStr(LowerInput, "enable"))) {
+        AutoclickerToggle := true
+        GuiControl, Child:+c00FFAA, AutoStatus
+        GuiControl, Child:, AutoStatus, ACTIVE
+        SetTimer, DoClickLoop, %ClickDelay%
+        Response := "I have enabled the Autoclicker. Use your hotkey or toggle it off when done."
+    }
+    else if (InStr(LowerInput, "autoclicker") && (InStr(LowerInput, "off") || InStr(LowerInput, "disable"))) {
+        AutoclickerToggle := false
+        GuiControl, Child:+cGray, AutoStatus
+        GuiControl, Child:, AutoStatus, STANDBY
+        SetTimer, DoClickLoop, Off
+        Response := "I have disabled the Autoclicker."
+    }
+    else if (InStr(LowerInput, "bhop") && (InStr(LowerInput, "on") || InStr(LowerInput, "enable"))) {
+        GuiControl, Child:, BhopActive, 1
+        GoSub, UpdateVars
+        Response := "Hardware Auto-Bhop has been enabled."
+    }
+    else if (InStr(LowerInput, "aimbot") && (InStr(LowerInput, "on") || InStr(LowerInput, "enable"))) {
+        GuiControl, Child:, AimbotActive, 1
+        GoSub, UpdateVars
+        Response := "Color Aimbot has been enabled. Hold your Aimbot Hotkey in game to lock on."
+    }
+    else if (InStr(LowerInput, "aimbot")) {
+        Response := "The Color Aimbot scans your FOV for a specific hex color and smoothly moves your mouse towards it. Great for tracking red enemy nametags!"
+    }
+    else if (InStr(LowerInput, "hello") || InStr(LowerInput, "hi")) {
+        Response := "Hello! I am your local AI. I can control toggles or explain features. Ask me 'what is triggerbot?'"
+    }
+    else if (InStr(LowerInput, "triggerbot")) {
+        Response := "Triggerbot automatically clicks when your crosshair hovers over a specific color (like a red enemy outline). Go to the Triggerbot tab to configure the hex color!"
+    }
+    else if (InStr(LowerInput, "ghost")) {
+        Response := "Ghost Mode completely hides the utility from the taskbar and system tray. Use your Dashboard Hotkey to access it."
+    }
+    else if (InStr(LowerInput, "priority") || InStr(LowerInput, "boost")) {
+        GoSub, SetRobloxPriority
+        Response := "I have maximized the CPU priority and power plan for your game."
+    }
+    else {
+        Response := "I am a local AI assistant. Try saying 'turn on aimbot', 'boost priority', or ask about a feature like 'bhop'."
+    }
+
+    newChat .= "AI: " . Response . "`n`n"
+    GuiControl, Child:, AiChatHistory, %newChat%
+
+    ; Scroll to bottom
+    SendMessage, 0x115, 7, 0,, ahk_id %hAiChat%
+return
+
+RandomStr(Length) {
+    Chars := "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    Str := ""
+    Loop, %Length% {
+        Random, Rand, 1, 62
+        Str .= SubStr(Chars, Rand, 1)
+    }
+    return Str
+}
+
+IsValidTarget() {
+    global TargetMode
+    if (TargetMode == "Any Application (Global)")
+        return true
+    return WinActive("ahk_group RobloxGroup")
+}
+
+WM_LBUTTONDOWN() {
+    PostMessage, 0xA1, 2
+}
+
+WM_MOUSEWHEEL(wParam, lParam, msg, hwnd) {
+    global TargetScrollY, MaxScroll
+    if (wParam > 0x780000)
+        TargetScrollY -= 90
+    else
+        TargetScrollY += 90
+}
+
+SmoothScrollLoop:
+    if (TargetScrollY > 0)
+        TargetScrollY := 0
+    if (TargetScrollY < -MaxScroll)
+        TargetScrollY := -MaxScroll
+
+    if (Abs(TargetScrollY - ScrollY) > 0.5) {
+        ScrollY += (TargetScrollY - ScrollY) * 0.25
+        WinMove, ahk_id %ChildHwnd%, , 130, % 35 + ScrollY
+    }
+return
+
+NavAimbot:
+    GuiControlGet, pos, Child:Pos, SecAimbot
+    TargetScrollY := -(posY - 20)
+return
+
+NavCombat:
+    GuiControlGet, pos, Child:Pos, SecCombat
+    TargetScrollY := -(posY - 20)
+return
+
+NavTrigger:
+    GuiControlGet, pos, Child:Pos, SecTrigger
+    TargetScrollY := -(posY - 20)
+return
+
+NavMovement:
+    GuiControlGet, pos, Child:Pos, SecMovement
+    TargetScrollY := -(posY - 20)
+return
+
+NavAntiAFK:
+    GuiControlGet, pos, Child:Pos, SecAntiAFK
+    TargetScrollY := -(posY - 20)
+return
+
+NavMacros:
+    GuiControlGet, pos, Child:Pos, SecMacros
+    TargetScrollY := -(posY - 20)
+return
+
+NavVisuals:
+    GuiControlGet, pos, Child:Pos, SecVisuals
+    TargetScrollY := -(posY - 20)
+return
+
+NavSettings:
+    GuiControlGet, pos, Child:Pos, SecSettings
+    TargetScrollY := -(posY - 20)
+return
+
+NavAdvanced:
+    GuiControlGet, pos, Child:Pos, SecAdvanced
+    TargetScrollY := -(posY - 20)
+return
+
+NavAssistant:
+    GuiControlGet, pos, Child:Pos, SecAssistant
+    TargetScrollY := -(posY - 20)
+return
+
+ShowApp:
+    Gui, Main:Show
+return
+
+ToggleDashboard:
+    if WinActive("ahk_id " MainHwnd)
+        Gui, Main:Hide
+    else
+        Gui, Main:Show
+return
+
+MinimizeApp:
+    Gui, Main:Hide
+    if (!GhostMode)
+        TrayTip, Utility, Running in background.`nDouble-click the tray icon to reopen., 2
+return
+
+ToggleStartup:
+    Gui, Child:Submit, NoHide
+    if (RunOnStartup) {
+        FileCreateShortcut, %A_ScriptFullPath%, %A_Startup%\RobloxUtility.lnk
+        TrayTip, Utility, Added to Windows startup!, 1
+    } else {
+        FileDelete, %A_Startup%\RobloxUtility.lnk
+        TrayTip, Utility, Removed from Windows startup., 1
+    }
+return
+
+CloseApp:
+    GoSub, FailsafeRelease
+    ExitApp
+
+PanicAction:
+    GoSub, FailsafeRelease
+    if (!GhostMode)
+        TrayTip, Utility, PANIC TRIGGERED - Exiting..., 1
+    Sleep, 500
+    ExitApp
+return
+
+ScorchedEarthAction:
+    GoSub, FailsafeRelease
+    FileDelete, %IniFile%
+    FileDelete, %A_Startup%\RobloxUtility.lnk
+    ExitApp
+return
+
+ToggleSuspend:
+    Suspend, Toggle
+    IsSuspended := A_IsSuspended
+    if (IsSuspended) {
+        GoSub, FailsafeRelease
+        GuiControl, Main:, TitleText, ⚙️ UTILITY APP v2.0 (SUSPENDED)
+        GuiControl, Main:+cFF4444, TitleText
+        if (!GhostMode)
+            TrayTip, Utility, ALL MACROS SUSPENDED, 1
+    } else {
+        GuiControl, Main:, TitleText, ⚙️ UTILITY APP v2.0 (SINGULARITY)
+        GuiControl, Main:+cWhite, TitleText
+        if (!GhostMode)
+            TrayTip, Utility, Macros Resumed, 1
+    }
+return
+
+ReloadScript:
+Reload
+
+SaveSettings:
+    Gui, Child:Submit, NoHide
+    
+    if (ClickDelay < 1)
+        ClickDelay := 1
+    if (ClickHoldTime < 1)
+        ClickHoldTime := 1
+    if (BurstClicks < 1)
+        BurstClicks := 1
+    if (TyperDelay < 1)
+        TyperDelay := 1
+    if (SkillDelay < 1)
+        SkillDelay := 1
+    if (TriggerTolerance < 0)
+        TriggerTolerance := 0
+    if (TriggerArea < 1)
+        TriggerArea := 1
+    if (AimbotFOV < 10)
+        AimbotFOV := 10
+    if (AimbotSmooth < 1)
+        AimbotSmooth := 1
+        
+    IniWrite, %ClickerHotkey%, %IniFile%, Settings, ClickerHotkey
+    IniWrite, %TyperHotkey%, %IniFile%, Settings, TyperHotkey
+    IniWrite, %ResetHotkey%, %IniFile%, Settings, ResetHotkey
+    IniWrite, %SkillHotkey%, %IniFile%, Settings, SkillHotkey
+    IniWrite, %BossHotkey%, %IniFile%, Settings, BossHotkey
+    IniWrite, %AutoWalkHotkey%, %IniFile%, Settings, AutoWalkHotkey
+    IniWrite, %DashHotkey%, %IniFile%, Settings, DashHotkey
+    IniWrite, %TriggerHotkey%, %IniFile%, Settings, TriggerHotkey
+    IniWrite, %AimbotHotkey%, %IniFile%, Settings, AimbotHotkey
+    IniWrite, %AimbotColor%, %IniFile%, Settings, AimbotColor
+    IniWrite, %AimbotTolerance%, %IniFile%, Settings, AimbotTolerance
+    IniWrite, %AimbotFOV%, %IniFile%, Settings, AimbotFOV
+    IniWrite, %AimbotSmooth%, %IniFile%, Settings, AimbotSmooth
+    IniWrite, %SkillSequence%, %IniFile%, Settings, SkillSequence
+    IniWrite, %SkillDelay%, %IniFile%, Settings, SkillDelay
+    IniWrite, %ResetDelay%, %IniFile%, Settings, ResetDelay
+    IniWrite, %ClickDelay%, %IniFile%, Settings, ClickDelay
+    IniWrite, %ClickHoldTime%, %IniFile%, Settings, ClickHoldTime
+    IniWrite, %BurstClicks%, %IniFile%, Settings, BurstClicks
+    IniWrite, %TargetRadius%, %IniFile%, Settings, TargetRadius
+    IniWrite, %ClickLimit%, %IniFile%, Settings, ClickLimit
+    IniWrite, %JitterActive%, %IniFile%, Settings, JitterActive
+    IniWrite, %JitterIntensity%, %IniFile%, Settings, JitterIntensity
+    IniWrite, %AiRecoil%, %IniFile%, Settings, AiRecoil
+    IniWrite, %FocusLock%, %IniFile%, Settings, FocusLock
+    IniWrite, %ClickSound%, %IniFile%, Settings, ClickSound
+    IniWrite, %HumanMoveTarget%, %IniFile%, Settings, HumanMoveTarget
+    IniWrite, %UseCustomLoc%, %IniFile%, Settings, UseCustomLoc
+    IniWrite, %CustomX%, %IniFile%, Settings, CustomX
+    IniWrite, %CustomY%, %IniFile%, Settings, CustomY
+    IniWrite, %TyperMessage%, %IniFile%, Settings, TyperMessage
+    IniWrite, %TyperDelay%, %IniFile%, Settings, TyperDelay
+    IniWrite, %HumanizeAfk%, %IniFile%, Settings, HumanizeAfk
+    IniWrite, %AutoPriority%, %IniFile%, Settings, AutoPriority
+    IniWrite, %ClickType%, %IniFile%, Settings, ClickType
+    IniWrite, %ClickMode%, %IniFile%, Settings, ClickMode
+    IniWrite, %RemapPhysicalKey%, %IniFile%, Settings, RemapPhysicalKey
+    IniWrite, %RemapSendKey%, %IniFile%, Settings, RemapSendKey
+    IniWrite, %AfkMode%, %IniFile%, Settings, AfkMode
+    IniWrite, %CrossShape%, %IniFile%, Settings, CrossShape
+    IniWrite, %CrossColor%, %IniFile%, Settings, CrossColor
+    IniWrite, %AlwaysOnTop%, %IniFile%, Settings, AlwaysOnTop
+    IniWrite, %TargetMode%, %IniFile%, Settings, TargetMode
+    IniWrite, %GhostMode%, %IniFile%, Settings, GhostMode
+    IniWrite, %TriggerColor%, %IniFile%, Settings, TriggerColor
+    IniWrite, %TriggerTolerance%, %IniFile%, Settings, TriggerTolerance
+    IniWrite, %TriggerArea%, %IniFile%, Settings, TriggerArea
+    
+    if (!GhostMode)
+        TrayTip, Utility, Settings Saved Successfully!, 1
+return
+
+UpdateVars:
+    Gui, Child:Submit, NoHide
+    
+    if (GhostMode)
+        Menu, Tray, NoIcon
+    else
+        Menu, Tray, Icon
+        
+    if (ClickDelay < 1) {
+        ClickDelay := 1
+        GuiControl, Child:, ClickDelay, 1
+    }
+    if (ClickHoldTime < 1) {
+        ClickHoldTime := 1
+        GuiControl, Child:, ClickHoldTime, 1
+    }
+    if (BurstClicks < 1) {
+        BurstClicks := 1
+        GuiControl, Child:, BurstClicks, 1
+    }
+    if (JitterIntensity < 1) {
+        JitterIntensity := 1
+        GuiControl, Child:, JitterIntensity, 1
+    }
+    if (TyperDelay < 1) {
+        TyperDelay := 1
+        GuiControl, Child:, TyperDelay, 1
+    }
+    if (SkillDelay < 1) {
+        SkillDelay := 1
+        GuiControl, Child:, SkillDelay, 1
+    }
+    if (ResetDelay < 1) {
+        ResetDelay := 1
+        GuiControl, Child:, ResetDelay, 1
+    }
+    if (AfkInterval < 1) {
+        AfkInterval := 1
+        GuiControl, Child:, AfkInterval, 1
+    }
+    if (TriggerTolerance < 0) {
+        TriggerTolerance := 0
+        GuiControl, Child:, TriggerTolerance, 0
+    }
+    if (TriggerArea < 1) {
+        TriggerArea := 1
+        GuiControl, Child:, TriggerArea, 1
+    }
+    if (AimbotFOV < 10) {
+        AimbotFOV := 10
+        GuiControl, Child:, AimbotFOV, 10
+    }
+    if (AimbotSmooth < 1) {
+        AimbotSmooth := 1
+        GuiControl, Child:, AimbotSmooth, 1
+    }
+    
+    GoSub, UpdateHotkeys
+return
+
+UpdateHotkeys:
+    Gui, Child:Submit, NoHide
+    
+    if (TargetMode == "Any Application (Global)")
+        Hotkey, IfWinActive
+    else
+        Hotkey, IfWinActive, ahk_group RobloxGroup
+
+    try {
+        if (OldClickerHotkey != "" && OldClickerHotkey != ClickerHotkey)
+            Hotkey, %OldClickerHotkey%, Off
+        if (ClickerHotkey != "") {
+            Hotkey, %ClickerHotkey%, ClickerAction, On
+            OldClickerHotkey := ClickerHotkey
+        }
+            
+        if (OldTyperHotkey != "" && OldTyperHotkey != TyperHotkey)
+            Hotkey, %OldTyperHotkey%, Off
+        if (TyperHotkey != "") {
+            Hotkey, %TyperHotkey%, TyperAction, On
+            OldTyperHotkey := TyperHotkey
+        }
+        
+        if (OldResetHotkey != "" && OldResetHotkey != ResetHotkey)
+            Hotkey, %OldResetHotkey%, Off
+        if (ResetHotkey != "") {
+            Hotkey, %ResetHotkey%, ResetAction, On
+            OldResetHotkey := ResetHotkey
+        }
+
+        if (OldSkillHotkey != "" && OldSkillHotkey != SkillHotkey)
+            Hotkey, %OldSkillHotkey%, Off
+        if (SkillHotkey != "") {
+            Hotkey, %SkillHotkey%, SkillAction, On
+            OldSkillHotkey := SkillHotkey
+        }
+        
+        if (OldBossHotkey != "" && OldBossHotkey != BossHotkey)
+            Hotkey, %OldBossHotkey%, Off
+        if (BossHotkey != "") {
+            Hotkey, %BossHotkey%, BossAction, On
+            OldBossHotkey := BossHotkey
+        }
+        
+        if (OldAutoWalkHotkey != "" && OldAutoWalkHotkey != AutoWalkHotkey)
+            Hotkey, %OldAutoWalkHotkey%, Off
+        if (AutoWalkHotkey != "") {
+            Hotkey, %AutoWalkHotkey%, AutoWalkAction, On
+            OldAutoWalkHotkey := AutoWalkHotkey
+        }
+
+        if (OldTriggerHotkey != "" && OldTriggerHotkey != TriggerHotkey)
+            Hotkey, %OldTriggerHotkey%, Off
+        if (TriggerHotkey != "") {
+            Hotkey, %TriggerHotkey%, TriggerbotAction, On
+            OldTriggerHotkey := TriggerHotkey
+        }
+    }
+
+    if (OldRemapKey != "") {
+        try Hotkey, *%OldRemapKey%, RemapKeyDown, Off
+        try Hotkey, *%OldRemapKey% Up, RemapKeyUp, Off
+    }
+    
+    bindKey := ""
+    if (RemapActive && RemapPhysicalKey != "") {
+        bindKey := TranslateKeyName(RemapPhysicalKey)
+        try {
+            Hotkey, *%bindKey%, RemapKeyDown, On
+            Hotkey, *%bindKey% Up, RemapKeyUp, On
+            OldRemapKey := bindKey
+        }
+    }
+
+    if (BhopActive && bindKey != "Space") {
+        try Hotkey, *$Space, StartBhop, On
+    } else {
+        try Hotkey, *$Space, Off
+    }
+
+    ; Aimbot Thread Binder
+    if (OldAimbotHotkey != "" && OldAimbotHotkey != AimbotHotkey)
+        try Hotkey, *%OldAimbotHotkey%, Off
+    if (AimbotActive && AimbotHotkey != "") {
+        aimKey := TranslateKeyName(AimbotHotkey)
+        try {
+            Hotkey, *%aimKey%, AimbotLoop, On
+            OldAimbotHotkey := AimbotHotkey
+        }
+    }
+
+    Hotkey, IfWinActive
+    
+    if (OldDashHotkey != "" && OldDashHotkey != DashHotkey)
+        Hotkey, %OldDashHotkey%, Off
+    if (DashHotkey != "") {
+        Hotkey, %DashHotkey%, ToggleDashboard, On
+        OldDashHotkey := DashHotkey
+    }
+
+return
+
+TranslateKeyName(k) {
+    k := Trim(k)
+    if (k = "Right Click")
+        return "RButton"
+    if (k = "Left Click")
+        return "LButton"
+    if (k = "Middle Click")
+        return "MButton"
+    if (k = "Side Button 1")
+        return "XButton1"
+    if (k = "Side Button 2")
+        return "XButton2"
+    if (k = "Spacebar")
+        return "Space"
+    return k
+}
+
+UpdateSettings:
+    Gui, Child:Submit, NoHide
+    if (AlwaysOnTop)
+        Gui, Main:+AlwaysOnTop
+    else
+        Gui, Main:-AlwaysOnTop
+return
+
+BossAction:
+    IsBossHidden := !IsBossHidden
+    if (IsBossHidden) {
+        WinHide, ahk_group RobloxGroup
+        if (!GhostMode)
+            TrayTip, Utility, Roblox Hidden (Stealth Mode), 1
+    } else {
+        WinShow, ahk_group RobloxGroup
+        WinActivate, ahk_group RobloxGroup
+        if (!GhostMode)
+            TrayTip, Utility, Roblox Restored, 1
+    }
+return
+
+; --- Advanced Window Management ---
+Res800:
+    if WinExist("ahk_group RobloxGroup") {
+        WinRestore, ahk_group RobloxGroup
+        WinMove, ahk_group RobloxGroup, , , , 800, 600
+        if (!GhostMode)
+            TrayTip, Utility, Resolution forced to 800x600, 1
+    }
+return
+
+Res1920:
+    if WinExist("ahk_group RobloxGroup") {
+        WinRestore, ahk_group RobloxGroup
+        WinMove, ahk_group RobloxGroup, , , , 1920, 1080
+        if (!GhostMode)
+            TrayTip, Utility, Resolution forced to 1920x1080, 1
+    }
+return
+
+ToggleFreeze:
+    targetPID := 0
+    Process, Exist, RobloxPlayerBeta.exe
+    if (ErrorLevel)
+        targetPID := ErrorLevel
+    else {
+        Process, Exist, RobloxPlayer64.exe
+        if (ErrorLevel)
+            targetPID := ErrorLevel
+        else {
+            Process, Exist, Windows10Universal.exe
+            if (ErrorLevel)
+                targetPID := ErrorLevel
+        }
+    }
+
+    if (!targetPID) {
+        if (!GhostMode)
+            TrayTip, Utility, Roblox not found!, 1
+        return
+    }
+
+    hProcess := DllCall("OpenProcess", "UInt", 0x001F0FFF, "Int", 0, "UInt", targetPID, "Ptr")
+    if (hProcess) {
+        if (RobloxFrozen) {
+            DllCall("ntdll.dll\NtResumeProcess", "Ptr", hProcess)
+            RobloxFrozen := false
+            if (!GhostMode)
+                TrayTip, Utility, Roblox Unfrozen!, 1
+        } else {
+            DllCall("ntdll.dll\NtSuspendProcess", "Ptr", hProcess)
+            RobloxFrozen := true
+            if (!GhostMode)
+                TrayTip, Utility, Roblox Frozen! (Lag Switch), 1
+        }
+        DllCall("CloseHandle", "Ptr", hProcess)
+    }
+return
+
+ForceKillRoblox:
+    Process, Close, RobloxPlayerBeta.exe
+    Process, Close, RobloxPlayer64.exe
+    Process, Close, Windows10Universal.exe
+    if (!GhostMode)
+        TrayTip, Utility, Roblox has been force closed., 1
+return
+
+ToggleBorderless:
+    if WinExist("ahk_group RobloxGroup") {
+        WinSet, Style, -0xC00000, ahk_group RobloxGroup
+        WinSet, Style, -0x40000, ahk_group RobloxGroup
+        WinSet, ExStyle, -0x200, ahk_group RobloxGroup
+        WinMaximize, ahk_group RobloxGroup
+        if (!GhostMode)
+            TrayTip, Utility, Borderless Fullscreen Applied, 1
+    } else {
+        MsgBox, 48, Error, Please launch Roblox first!
+    }
+return
+
+SetRobloxPriority:
+    Process, Priority, RobloxPlayerBeta.exe, High
+    Process, Priority, RobloxPlayer64.exe, High
+    Process, Priority, Windows10Universal.exe, High
+    Run, %ComSpec% /c powercfg -setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c,, Hide
+    if (!GhostMode)
+        TrayTip, Utility, CPU Priority HIGH & Power Plan Active!, 2
+return
+
+ToggleAutoPriority:
+    Gui, Child:Submit, NoHide
+    if (AutoPriority) {
+        SetTimer, AutoPriorityLoop, 10000
+    } else {
+        SetTimer, AutoPriorityLoop, Off
+    }
+return
+
+AutoPriorityLoop:
+    Process, Priority, RobloxPlayerBeta.exe, High
+    Process, Priority, RobloxPlayer64.exe, High
+return
+
+UnlockFPS:
+    rbxPath := LocalAppData "\Roblox\Versions"
+    unlocked := false
+    Loop, Files, %rbxPath%\*, D
+    {
+        if FileExist(A_LoopFileFullPath "\RobloxPlayerBeta.exe") || FileExist(A_LoopFileFullPath "\RobloxPlayer64.exe") {
+            csFolder := A_LoopFileFullPath "\ClientSettings"
+            IfNotExist, %csFolder%
+                FileCreateDir, %csFolder%
+            FileDelete, %csFolder%\ClientAppSettings.json
+            FileAppend, {"DFIntTaskSchedulerTargetFps": 9999}, %csFolder%\ClientAppSettings.json
+            unlocked := true
+        }
+    }
+    if (unlocked) {
+        if (!GhostMode)
+            TrayTip, Utility, FPS Unlocked! (Requires Roblox Restart), 2
+    } else {
+        MsgBox, 48, Error, Could not locate Roblox installation.
+    }
+return
+
+FlushRAM:
+    EmptyMem("RobloxPlayerBeta.exe")
+    EmptyMem("RobloxPlayer64.exe")
+    EmptyMem("Windows10Universal.exe")
+    if (!GhostMode)
+        TrayTip, Utility, RAM Flushed! Roblox memory freed., 1
+return
+
+EmptyMem(exeName) {
+    Process, Exist, %exeName%
+    pid := ErrorLevel
+    if (pid) {
+        hProcess := DllCall("OpenProcess", "UInt", 0x001F0FFF, "Int", 0, "UInt", pid, "Ptr")
+        if (hProcess) {
+            DllCall("psapi.dll\EmptyWorkingSet", "Ptr", hProcess)
+            DllCall("CloseHandle", "Ptr", hProcess)
+        }
+    }
+}
+
+FlushNetwork:
+    RunWait, %ComSpec% /c ipconfig /flushdns,, Hide
+    if (!GhostMode)
+        TrayTip, Utility, DNS Flushed! Potential ping drops resolved., 1
+return
+
+ClearRobloxCache:
+    FileRemoveDir, %LocalAppData%\Roblox\http, 1
+    FileRemoveDir, %A_Temp%\Roblox, 1
+    if (!GhostMode)
+        TrayTip, Utility, Cache Cleared! Next game join may be smoother., 1
+return
+
+ToggleAntiAfk:
+    GoSub, UpdateVars
+    if (AntiAfkToggle) {
+        AfkTimer := AfkInterval * 60000
+        if (HumanizeAfk) {
+            Random, rAfk, -30000, 30000
+            AfkTimer += rAfk
+        }
+        SetTimer, DoAntiAfk, %AfkTimer%
+        if (!GhostMode)
+            TrayTip, Utility, Anti-AFK Enabled, 1
+    } else {
+        SetTimer, DoAntiAfk, Off
+    }
+return
+
+DoAntiAfk:
+    if WinExist("ahk_group RobloxGroup")
+    {
+        if (AfkMode == "Jump") {
+            ControlSend,, {Space down}, ahk_group RobloxGroup
+            Sleep, 50
+            ControlSend,, {Space up}, ahk_group RobloxGroup
+        } else if (AfkMode == "Walk (W+S)") {
+            ControlSend,, {w down}, ahk_group RobloxGroup
+            Sleep, 200
+            ControlSend,, {w up}, ahk_group RobloxGroup
+            Sleep, 100
+            ControlSend,, {s down}, ahk_group RobloxGroup
+            Sleep, 200
+            ControlSend,, {s up}, ahk_group RobloxGroup
+        } else if (AfkMode == "Spin (Arrows)") {
+            ControlSend,, {Right down}, ahk_group RobloxGroup
+            Sleep, 500
+            ControlSend,, {Right up}, ahk_group RobloxGroup
+        } else if (AfkMode == "Mouse Jiggle") {
+            WinActivate, ahk_group RobloxGroup
+            MouseGetPos, afkX, afkY
+            MouseMove, 50, 50, 20, R
+            Sleep, 200
+            MouseMove, %afkX%, %afkY%, 20
+        } else if (AfkMode == "Camera Pan") {
+            WinActivate, ahk_group RobloxGroup
+            DllCall("mouse_event", "UInt", 0x08, "Int", 0, "Int", 0, "UInt", 0, "UPtr", 0) 
+            Sleep, 50
+            MouseMove, 150, 0, 30, R
+            Sleep, 50
+            DllCall("mouse_event", "UInt", 0x10, "Int", 0, "Int", 0, "UInt", 0, "UPtr", 0) 
+        }
+        ControlSend,, {Space up}{w up}{s up}{Right up}, ahk_group RobloxGroup
+    }
+    
+    if (HumanizeAfk) {
+        AfkTimer := AfkInterval * 60000
+        Random, rAfk, -30000, 30000
+        AfkTimer += rAfk
+        SetTimer, DoAntiAfk, %AfkTimer%
+    }
+    
+    Random, rBatch, 10, 20
+    SetTimer, DoAntiAfk, Priority, %rBatch%
+return
+
+UpdateCrosshair:
+    Gui, Child:Submit, NoHide
+    if (CrosshairActive) {
+        Gui, Crosshair:Destroy
+        Gui, Crosshair:+LastFound +AlwaysOnTop -Caption +ToolWindow +E0x20 -DPIScale
+        Gui, Crosshair:Color, EEAA99
+        WinSet, TransColor, EEAA99
+        Gui, Crosshair:Font, s24 c%CrossColor% w700
+        Gui, Crosshair:Add, Text, x0 y0 w30 h30 Center +BackgroundTrans, %CrossShape%
+        
+        CenterX := (A_ScreenWidth / 2) - 15
+        CenterY := (A_ScreenHeight / 2) - 15
+        Gui, Crosshair:Show, x%CenterX% y%CenterY% w30 h30 NoActivate
+    } else {
+        Gui, Crosshair:Destroy
+    }
+return
+
+; --- AIMBOT LOGIC ---
+AimbotLoop:
+    if (!AimbotActive || (FocusLock && !IsValidTarget()))
+        return
+        
+    aimTriggerKey := TranslateKeyName(AimbotHotkey)
+    
+    while GetKeyState(aimTriggerKey, "P") {
+        if (IsSuspended || (FocusLock && !IsValidTarget()))
+            break
+            
+        CenterX := A_ScreenWidth / 2
+        CenterY := A_ScreenHeight / 2
+        ScanL := CenterX - (AimbotFOV / 2)
+        ScanT := CenterY - (AimbotFOV / 2)
+        ScanR := CenterX + (AimbotFOV / 2)
+        ScanB := CenterY + (AimbotFOV / 2)
+        
+        PixelSearch, Px, Py, %ScanL%, %ScanT%, %ScanR%, %ScanB%, 0x%AimbotColor%, %AimbotTolerance%, Fast RGB
+        if (!ErrorLevel) {
+            ; Calculate Relative Distance
+            RelX := Px - CenterX
+            RelY := Py - CenterY
+            
+            ; Apply Smoothing logic
+            MoveX := RelX / AimbotSmooth
+            MoveY := RelY / AimbotSmooth
+            
+            ; Inject hardware relative mouse move towards target
+            DllCall("mouse_event", "UInt", 0x0001, "Int", MoveX, "Int", MoveY, "UInt", 0, "UPtr", 0)
+        }
+        Sleep, 5 ; Internal engine poll rate
+    }
+return
+
+; --- TRIGGERBOT LOGIC ---
+TriggerbotAction:
+    GoSub, UpdateVars
+    TriggerToggle := !TriggerToggle
+    if (TriggerToggle) {
+        GuiControl, Child:+c00FFAA, TriggerStatus
+        GuiControl, Child:, TriggerStatus, ACTIVE
+        SetTimer, TriggerLoop, 10
+    } else {
+        GuiControl, Child:+cGray, TriggerStatus
+        GuiControl, Child:, TriggerStatus, STANDBY
+        SetTimer, TriggerLoop, Off
+    }
+return
+
+TriggerLoop:
+    if (FocusLock && !IsValidTarget())
+        return
+        
+    CenterX := A_ScreenWidth / 2
+    CenterY := A_ScreenHeight / 2
+    ScanL := CenterX - (TriggerArea / 2)
+    ScanT := CenterY - (TriggerArea / 2)
+    ScanR := CenterX + (TriggerArea / 2)
+    ScanB := CenterY + (TriggerArea / 2)
+    
+    PixelSearch, Px, Py, %ScanL%, %ScanT%, %ScanR%, %ScanB%, 0x%TriggerColor%, %TriggerTolerance%, Fast RGB
+    if (!ErrorLevel) {
+        GoSub, PerformClick
+        Sleep, %ClickDelay% 
+    }
+return
+
+TyperAction:
+    GoSub, UpdateVars
+    TyperToggle := !TyperToggle
+    if (TyperToggle) {
+        GuiControl, Child:+c00FFAA, TyperStatus
+        GuiControl, Child:, TyperStatus, ACTIVE
+        GoSub, SendChatMessage
+        TyperTimer := TyperDelay * 1000
+        SetTimer, SendChatMessage, %TyperTimer%
+    } else {
+        GuiControl, Child:+cGray, TyperStatus
+        GuiControl, Child:, TyperStatus, STANDBY
+        SetTimer, SendChatMessage, Off
+    }
+return
+
+SendChatMessage:
+    if IsValidTarget() {
+        Send {Blind}{Ctrl Up}{Alt Up}{Shift Up}
+        Sleep, 50
+        Send, {/}
+        Sleep, 300 
+        
+        msgs := StrSplit(TyperMessage, "|")
+        if (MsgIndex > msgs.MaxIndex())
+            MsgIndex := 1
+            
+        currMsg := msgs[MsgIndex]
+        
+        ClipSave := ClipboardAll
+        Clipboard := currMsg
+        Sleep, 20
+        Send, ^v
+        Sleep, 50
+        Clipboard := ClipSave
+        
+        Sleep, 100
+        Send, {Enter}
+        MsgIndex++
+    }
+return
+
+ResetAction:
+    GoSub, UpdateVars
+    if IsValidTarget() {
+        if (IsSuspended)
+            return
+        Send {Blind}{Esc}
+        Sleep, %ResetDelay%
+        Send {Blind}r
+        Sleep, %ResetDelay%
+        Send {Blind}{Enter}
+    }
+return
+
+AutoWalkAction:
+    if IsValidTarget() {
+        if (IsSuspended)
+            return
+        AutoWalkToggle := !AutoWalkToggle
+        if (AutoWalkToggle) {
+            Send {Blind}{w down}
+            if (!GhostMode)
+                TrayTip, Utility, Auto-Walk ENABLED, 1
+        } else {
+            Send {Blind}{w up}
+            if (!GhostMode)
+                TrayTip, Utility, Auto-Walk DISABLED, 1
+        }
+    }
+return
+
+SkillAction:
+    GoSub, UpdateVars
+    if (IsSuspended)
+        return
+    SkillToggle := !SkillToggle
+    if (SkillToggle) {
+        GuiControl, Child:+c00FFAA, SkillStatus
+        GuiControl, Child:, SkillStatus, ACTIVE
+        GoSub, SendSkills
+        SetTimer, SendSkills, %SkillDelay%
+    } else {
+        GuiControl, Child:+cGray, SkillStatus
+        GuiControl, Child:, SkillStatus, STANDBY
+        SetTimer, SendSkills, Off
+    }
+return
+
+SendSkills:
+    if IsValidTarget() {
+        if (IsSuspended)
+            return
+            
+        Loop, Parse, SkillSequence, `,
+        {
+            skillKey := Trim(A_LoopField)
+            if (skillKey != "") {
+                SendEvent {Blind}%skillKey%
+                Random, humanSkillDelay, 20, 50
+                Sleep, %humanSkillDelay%
+            }
+        }
+    }
+return
+
+CaptureCoords:
+    MsgBox, 64, Position Capture, Move your mouse to your desired location and press F7., 3
+return
+
+CaptureLocationAction:
+    MouseGetPos, mX, mY
+    GuiControl, Child:, CustomX, %mX%
+    GuiControl, Child:, CustomY, %mY%
+    CustomX := mX
+    CustomY := mY
+    if (!GhostMode)
+        TrayTip, Position Captured, X: %mX% | Y: %mY%, 1
+return
+
+HumanMove(targetX, targetY) {
+    MouseGetPos, startX, startY
+    
+    Loop, 15 {
+        t := A_Index / 15
+        curX := startX + (targetX - startX) * t 
+        curY := startY + (targetY - startY) * t 
+        variance := Sin(t * 3.14159) * Random(-8, 8) 
+        curX += variance
+        curY += variance
+        MouseMove, %curX%, %curY%, 1
+        Sleep, 2 
+    }
+    MouseMove, %targetX%, %targetY%, 0
+}
+
+ClickerAction:
+    GoSub, UpdateVars
+    ClickCount := 0 
+    
+    if (ClickMode = "Hold") {
+        while GetKeyState(ClickerHotkey, "P") {
+            if (IsSuspended)
+                break
+                
+            GoSub, PerformClick
+            ActualDelay := UseRandomInterval ? (ClickDelay + (Random(-10, 10))) : ClickDelay
+            Sleep, % (ActualDelay < 1 ? 1 : ActualDelay)
+            
+            if (ClickLimit > 0 && ClickCount >= ClickLimit)
+                break
+        }
+    } else {
+        AutoclickerToggle := !AutoclickerToggle
+        if (AutoclickerToggle) {
+            GuiControl, Child:+c00FFAA, AutoStatus
+            GuiControl, Child:, AutoStatus, ACTIVE
+            SetTimer, DoClickLoop, %ClickDelay%
+        } else {
+            GuiControl, Child:+cGray, AutoStatus
+            GuiControl, Child:, AutoStatus, STANDBY
+            SetTimer, DoClickLoop, Off
+        }
+    }
+return
+
+DoClickLoop:
+    GoSub, PerformClick
+    if (UseRandomInterval) {
+        Random, Rnd, -10, 10
+        NewDelay := ClickDelay + Rnd
+        SetTimer, DoClickLoop, % (NewDelay < 1 ? 1 : NewDelay)
+    }
+return
+
+PerformClick:
+    if (FocusLock && !IsValidTarget()) {
+        if (ClickMode == "Toggle" && AutoclickerToggle) {
+            AutoclickerToggle := false
+            GuiControl, Child:+cGray, AutoStatus
+            GuiControl, Child:, AutoStatus, STANDBY
+            SetTimer, DoClickLoop, Off
+            GoSub, FailsafeRelease
+        }
+        return
+    }
+
+    if (UseCustomLoc && CustomX != "" && CustomY != "") {
+        tX := CustomX
+        tY := CustomY
+        if (TargetRadius > 0) {
+            tX += Random(-TargetRadius, TargetRadius)
+            tY += Random(-TargetRadius, TargetRadius)
+        }
+        
+        if (HumanMoveTarget)
+            HumanMove(tX, tY)
+        else
+            MouseMove, %tX%, %tY%, 0
+    }
+    
+    if (JitterActive) {
+        MouseGetPos, origX, origY
+        
+        ; AI Adaptive Recoil Logic
+        CurrentJitter := JitterIntensity
+        if (AiRecoil) {
+            ; Linearly increase jitter intensity by 1px every 5 clicks in the burst
+            CurrentJitter += Floor(ClickCount / 5)
+        }
+        
+        jX := Random(-CurrentJitter, CurrentJitter)
+        jY := Random(-CurrentJitter, CurrentJitter)
+        MouseMove, %jX%, %jY%, 0, R
+    }
+    
+    Loop, %BurstClicks% {
+        if (IsSuspended || (FocusLock && !IsValidTarget()))
+            break
+            
+        if (ClickSound && A_Index == 1)
+            SoundPlay, *-1
+
+        if (ClickType == "Left" || ClickType == "Double-Click") {
+            DllCall("mouse_event", "UInt", 0x02, "Int", 0, "Int", 0, "UInt", 0, "UPtr", 0) 
+            Sleep, %ClickHoldTime%
+            DllCall("mouse_event", "UInt", 0x04, "Int", 0, "Int", 0, "UInt", 0, "UPtr", 0) 
+            
+            if (ClickType == "Double-Click") {
+                Sleep, 30
+                DllCall("mouse_event", "UInt", 0x02, "Int", 0, "Int", 0, "UInt", 0, "UPtr", 0)
+                Sleep, %ClickHoldTime%
+                DllCall("mouse_event", "UInt", 0x04, "Int", 0, "Int", 0, "UInt", 0, "UPtr", 0)
+            }
+        } else if (ClickType == "Right") {
+            DllCall("mouse_event", "UInt", 0x08, "Int", 0, "Int", 0, "UInt", 0, "UPtr", 0) 
+            Sleep, %ClickHoldTime%
+            DllCall("mouse_event", "UInt", 0x10, "Int", 0, "Int", 0, "UInt", 0, "UPtr", 0) 
+        } else if (ClickType == "Middle") {
+            DllCall("mouse_event", "UInt", 0x20, "Int", 0, "Int", 0, "UInt", 0, "UPtr", 0) 
+            Sleep, %ClickHoldTime%
+            DllCall("mouse_event", "UInt", 0x40, "Int", 0, "Int", 0, "UInt", 0, "UPtr", 0) 
+        } else if (ClickType == "Scroll Up") {
+            DllCall("mouse_event", "UInt", 0x0800, "Int", 0, "Int", 0, "Int", 120, "UPtr", 0)
+        } else if (ClickType == "Scroll Down") {
+            DllCall("mouse_event", "UInt", 0x0800, "Int", 0, "Int", 0, "Int", -120, "UPtr", 0)
+        }
+        
+        ClickCount++
+        if (BurstClicks > 1 && A_Index < BurstClicks)
+            Sleep, 25 
+    }
+    
+    if (JitterActive) {
+        MouseMove, %origX%, %origY%, 0
+    }
+    
+    if (ClickLimit > 0 && ClickCount >= ClickLimit) {
+        AutoclickerToggle := false
+        GuiControl, Child:+cGray, AutoStatus
+        GuiControl, Child:, AutoStatus, STANDBY
+        SetTimer, DoClickLoop, Off
+        GoSub, FailsafeRelease
+    }
+return
+
+FailsafeRelease:
+    DllCall("mouse_event", "UInt", 0x04, "Int", 0, "Int", 0, "UInt", 0, "UPtr", 0) 
+    DllCall("mouse_event", "UInt", 0x10, "Int", 0, "Int", 0, "UInt", 0, "UPtr", 0) 
+    DllCall("mouse_event", "UInt", 0x40, "Int", 0, "Int", 0, "UInt", 0, "UPtr", 0) 
+    DllCall("keybd_event", "UChar", 0x20, "UChar", 0x39, "UInt", 2, "UPtr", 0) 
+    
+    AutoWalkToggle := false
+    TriggerToggle := false
+    GuiControl, Child:+cGray, TriggerStatus
+    GuiControl, Child:, TriggerStatus, STANDBY
+    SetTimer, TriggerLoop, Off
+
+    Send {Blind}{Ctrl Up}{Alt Up}{Shift Up}{LWin Up}{RWin Up}
+    if WinExist("ahk_group RobloxGroup")
+        ControlSend,, {w up}{a up}{s up}{d up}{Right up}{Left up}{Up up}{Down up}, ahk_group RobloxGroup
+return
+
+; --- Universal Remap Engine ---
+RemapKeyDown:
+    if (IsSuspended)
+        return
+        
+    sKey := TranslateKeyName(RemapSendKey)
+    if ((sKey = "Space" || sKey = "Spacebar") && BhopActive) {
+        GoSub, StartBhop
+        return
+    }
+    
+    SendEvent {Blind}{%sKey% down}
+return
+
+RemapKeyUp:
+    if (IsSuspended)
+        return
+
+    sKey := TranslateKeyName(RemapSendKey)
+    if ((sKey = "Space" || sKey = "Spacebar") && BhopActive)
+        return
+
+    SendEvent {Blind}{%sKey% up}
+return
+
+; --- Hardware Auto-Bhop Engine ---
+StartBhop:
+    if (BhopRunning)
+        return
+    BhopRunning := true
+
+    tKey := RegExReplace(A_ThisHotkey, "^[\*\$]+| Up$")
+
+    while GetKeyState(tKey, "P") {
+        if (!IsValidTarget() || IsSuspended)
+            break
+
+        DllCall("keybd_event", "UChar", 0x20, "UChar", 0x39, "UInt", 0, "UPtr", 0)
+        Random, bhopHold, 12, 22
+        Sleep, %bhopHold%
+        DllCall("keybd_event", "UChar", 0x20, "UChar", 0x39, "UInt", 2, "UPtr", 0)
+
+        Random, bhopWait, 15, 30
+        Sleep, %bhopWait%
+    }
+
+    BhopRunning := false
+    DllCall("keybd_event", "UChar", 0x20, "UChar", 0x39, "UInt", 2, "UPtr", 0)
+return
